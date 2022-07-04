@@ -56,38 +56,50 @@
 
 (defmacro with-consumer-group-id [id & body]
   `(let [~id ~(u/uid)]
-     (timbre/info "Consumer group id used " ~id)
+     (timbre/debug "Consumer group id used " ~id)
      ~@body))
 
 
 (defn consume-records-latest
+  "consumer-settings is a map
+  {:key-deserializer :string/:long,
+   :security-protocol : SSL/PLAINTEXT/SASL_PLAINTEXT/SASL_SSL,
+   :broker <string>,
+   :port <int>,
+    :decode-value-as-json true/false"
   ([{:keys [decode-value-as-json] :as consumer-settings} topic channel]
    (with-consumer-group-id
      group-id
      (with-open [consumer (K.in/consumer (consumer-config group-id consumer-settings))]
-       (timbre/info "Will consume from latest offsets in all partitions of topic " topic)
+       (timbre/debug "Will consume from latest offsets in all partitions of topic " topic)
        (K.in/register-for consumer (re-pattern topic))
        (consume consumer channel decode-value-as-json))))
   ([{:keys [decode-value-as-json] :as consumer-settings} topic channel partition]
    (with-consumer-group-id
      group-id
      (with-open [consumer (K.in/consumer (consumer-config group-id consumer-settings))]
-       (timbre/info "Will consume from latest offset for topic " topic " and partition " partition)
+       (timbre/debug "Will consume from latest offset for topic " topic " and partition " partition)
        (K.in/register-for consumer [[topic partition]])
        (consume consumer channel decode-value-as-json)))))
 
 (defn consume-records-minutes-ago
+  "consumer-settings is a map
+  {:key-deserializer :string/:long,
+   :security-protocol : SSL/PLAINTEXT/SASL_PLAINTEXT/SASL_SSL,
+   :broker <string>,
+   :port <int>,
+    :decode-value-as-json true/false"
   ([{:keys [decode-value-as-json] :as consumer-settings} topic channel minutes-ago]
    (with-consumer-group-id
      group-id
      (with-open [consumer (K.in/consumer (consumer-config group-id consumer-settings))]
-       (timbre/info (format "Will consume from topic %s from all partitions (with offset calculated for %d minutes ago)" topic minutes-ago))
+       (timbre/debug (format "Will consume from topic %s from all partitions (with offset calculated for %d minutes ago)" topic minutes-ago))
        (let [start-time (u/minutes-ago-epoch minutes-ago)
              partitions (count (K.in/partitions consumer topic))
-             _ (timbre/info "Number of partitions for topic " topic " is " partitions)
+             _ (timbre/debug "Number of partitions for topic " topic " is " partitions)
              topic-partitions (->> (range 0 partitions)
                                    (map #(vec [topic %])))
-             _ (timbre/info "topic-partitions are " topic-partitions)
+             _ (timbre/debug "topic-partitions are " (doall topic-partitions))
              offsets-for-timestamps-payload (->> topic-partitions
                                                  (reduce (fn [acc topic-partition]
                                                            (assoc acc topic-partition start-time))
@@ -97,44 +109,35 @@
                                (map (fn [[topic-partition {offset ::K/offset}]]
                                       [topic-partition offset]))
                                (into {}))
-             _ (timbre/info "seek pay load is " seek-payload)]
+             _ (timbre/debug "seek pay load is " (doall seek-payload))]
          (K.in/register-for consumer topic-partitions)
-         (timbre/info "Consumer registered for topic " topic " all partitions")
+         (timbre/debug "Consumer registered for topic " topic " all partitions")
          (K.in/seek consumer seek-payload)
          (consume consumer channel decode-value-as-json)))))
   ([{:keys [decode-value-as-json] :as consumer-settings} topic channel minutes-ago partition]
    (with-consumer-group-id
      group-id
      (with-open [consumer (K.in/consumer (consumer-config group-id consumer-settings))]
-       (timbre/info (format "Will consume from topic %s from partition %d with offset calculated for %d minutes ago" topic partition minutes-ago))
+       (timbre/debug (format "Will consume from topic %s from partition %d with offset calculated for %d minutes ago" topic partition minutes-ago))
        (K.in/register-for consumer [[topic partition]])
        (let [topic-partition-offset (K.in/offsets-for-timestamps consumer {[topic partition] (u/minutes-ago-epoch minutes-ago)})
              {offset ::K/offset} (get topic-partition-offset [topic partition])]
          (K.in/seek consumer {[topic partition] offset})
-         (timbre/info (format "Computed offset for %d minutes ago as %d" minutes-ago offset))
+         (timbre/debug (format "Computed offset for %d minutes ago as %d" minutes-ago offset))
          (consume consumer channel decode-value-as-json))))))
 
 (defn consume-records-offset
+  "consumer-settings is a map
+  {:key-deserializer :string/:long,
+   :security-protocol : SSL/PLAINTEXT/SASL_PLAINTEXT/SASL_SSL,
+   :broker <string>,
+   :port <int>,
+   :decode-value-as-json true/false}"
   [{:keys [decode-value-as-json] :as consumer-settings} topic channel partition offset]
   (with-consumer-group-id
     group-id
     (with-open [consumer (K.in/consumer (consumer-config group-id consumer-settings))]
-      (timbre/info (format "Will consume from topic %s from partition %d and offset %d" topic partition offset))
+      (timbre/debug (format "Will consume from topic %s from partition %d and offset %d" topic partition offset))
       (K.in/register-for consumer [[topic partition]])
       (K.in/seek consumer {[topic partition] offset})
       (consume consumer channel decode-value-as-json))))
-
-
-(comment
-  (let [channel (clojure.core.async/timeout (u/minutes->milli 20000))
-        topic "proust-person-updates"
-        minutes-ago 60]
-    (thread
-      (consume-records-offset {:broker               "b-1.kafka-prod.l0h7jb.c6.kafka.us-west-2.amazonaws.com"
-                               :port                 9094 :security-protocol "SSL" :key-deserializer :string
-                               :decode-value-as-json true} topic channel 2 166067778))
-    (loop []
-      (if-let [records (<!! channel)]
-        (do
-          (println records)
-          (recur))))))
