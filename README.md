@@ -12,7 +12,7 @@ A Clojure library designed to provide a simple interface to consume from Kafka f
 
 Add the following to the dependencies section of `project.clj`
 ```clojure
-[io.github.ashwinbhaskar/kafka-util "0.1.1"]
+[io.github.ashwinbhaskar/kafka-util "0.1.2"]
 ```
 
 ## Usage
