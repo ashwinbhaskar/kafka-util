@@ -1,11 +1,11 @@
 # kafka-util
 
 A Clojure library designed to provide a simple interface to consume from Kafka for debugging purposes. For example, you can quickly retrieve records for the queries like 
-- Give me latest records from partition 1
-- Give me records from all partitions from 15 minutes ago
-- Give me records for partition 1 starting from offset 23434
-- Give me records for partition 1 from 45 minutes ago
-- Compute the partition for a given key
+- *Give me latest records from partition 1*
+- *Give me records for all partitions from 15 minutes ago*
+- *Give me records for partition 1 starting from offset 23434*
+- *Give me records for partition 1 from 45 minutes ago*
+- *Compute the partition for a given key*
 <br><br>The library uses `clojure.core.async` to communicate back the kafka records.
 
 ## Add Dependency
