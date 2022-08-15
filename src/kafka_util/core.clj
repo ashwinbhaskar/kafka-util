@@ -99,7 +99,7 @@
              _ (timbre/debug "Number of partitions for topic " topic " is " partitions)
              topic-partitions (->> (range 0 partitions)
                                    (map #(vec [topic %])))
-             _ (timbre/debug "topic-partitions are " (doall topic-partitions))
+             _ (timbre/debug "topic-partitions are " (u/mk-string "," topic-partitions))
              offsets-for-timestamps-payload (->> topic-partitions
                                                  (reduce (fn [acc topic-partition]
                                                            (assoc acc topic-partition start-time))
@@ -108,8 +108,9 @@
              seek-payload (->> topic-partitions-offsets
                                (map (fn [[topic-partition {offset ::K/offset}]]
                                       [topic-partition offset]))
+                               (remove #(nil? (second %)))
                                (into {}))
-             _ (timbre/debug "seek pay load is " (doall seek-payload))]
+             _ (timbre/debug "seek pay load (only partitions that have records with timestamp >= \"from minutes-ago\") \n" (doall seek-payload))]
          (K.in/register-for consumer topic-partitions)
          (timbre/debug "Consumer registered for topic " topic " all partitions")
          (K.in/seek consumer seek-payload)
@@ -141,3 +142,19 @@
       (K.in/register-for consumer [[topic partition]])
       (K.in/seek consumer {[topic partition] offset})
       (consume consumer channel decode-value-as-json))))
+
+(comment
+  (let [settings {:broker               "localhost:8081"
+                  :port                 9094
+                  :security-protocol    "SSL"
+                  :decode-value-as-json true
+                  :key-deserializer     :string}
+        topic "a-topic"
+        channel (timeout (u/minutes->milli 1))]
+    (thread (consume-records-minutes-ago settings topic channel 1))
+    (loop []
+      (if-let [records (<!! channel)]
+        (do
+          (println records)
+          (recur))
+        (println "done")))))

@@ -1,4 +1,4 @@
-(defproject io.github.ashwinbhaskar/kafka-util "0.1.1"
+(defproject io.github.ashwinbhaskar/kafka-util "0.1.2"
   :description "A simple interface to fetch data from kafka"
   :url "https://github.com/ashwinbhaskar/kafka-util"
   :dependencies [[org.clojure/clojure "1.10.0"]
